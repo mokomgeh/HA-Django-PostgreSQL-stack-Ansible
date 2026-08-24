@@ -19,3 +19,11 @@ App Server            -      Django (Web app backend)
 Web Server            -      Nginx (Reverse proxy)
 Database              -      PostgreSQL (Database Storage)
 Security              -      SELinux & Firewalld (Mandatory Access control)
+
+# Project Tasks
+1. VM provisioning and ansible base configuration (ansible.cfg file, inventories and ssh connection)
+2. ansible-node common configurations
+3. database node configuration (Posgresql installation and configuration.)
+4. webserver nodes configuration (django and nginx setup and configuration)
+5. load balancer configuration (configure HAProxy)
+6. testing
