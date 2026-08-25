@@ -1,0 +1,27 @@
+---
+- name: General configuration for all hosts
+  hosts: all
+  gather_facts: true
+
+  tasks:
+    - name: Add Epel repository
+      ansible.builtin.dnf:
+        name: epel-release
+        state: present
+    
+    - name: Update system
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+      
+    - name: Update and install packages
+      ansible.builtin.dnf:
+        name: firewalld
+        state: present
+
+    - name: Start and enable firewalld
+      ansible.builtin.service:
+        name: firewalld
+        state: started
+        enabled: true
+        

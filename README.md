@@ -12,17 +12,17 @@ I want to prove to myself that I can apply the skills I learned while studying f
 <img width="252" height="422" alt="Project structure" src="https://github.com/user-attachments/assets/8c63d22b-18d1-4235-bdcf-b6ab54d16244" />
 
 # Stack
-OS                    -      RockyLinux 9 
-Provisioning          -      Ansible (Automation)
-Load Balancer         -      HAProxy (Web traffic distribution)
-App Server            -      Django (Web app backend)
-Web Server            -      Nginx (Reverse proxy)
-Database              -      PostgreSQL (Database Storage)
-Security              -      SELinux & Firewalld (Mandatory Access control)
+1. OS                    -      RockyLinux 9 
+2. Provisioning          -      Ansible (Automation)
+3. Load Balancer         -      HAProxy (Web traffic distribution)
+4. App Server            -      Django (Web app backend)
+5. Web Server            -      Nginx (Reverse proxy)
+6. Database              -      PostgreSQL (Database Storage)
+7. Security              -      SELinux & Firewalld (Mandatory Access control)
 
 # Project Tasks
 1. VM provisioning and ansible base configuration (ansible.cfg file, inventories and ssh connection)
-2. ansible-node common configurations
+2. ansible node general configurations
 3. database node configuration (Posgresql installation and configuration.)
 4. webserver nodes configuration (django and nginx setup and configuration)
 5. load balancer configuration (configure HAProxy)
