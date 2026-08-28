@@ -24,4 +24,12 @@
         name: firewalld
         state: started
         enabled: true
+
+- name: Configure PostgreSQL database server
+  hosts: database
+  become: true
+  gather_facts: true
+  tags: [database, postgresql]
+  roles:
+    - database
         

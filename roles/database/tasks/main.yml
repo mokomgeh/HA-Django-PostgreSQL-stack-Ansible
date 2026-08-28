@@ -1,0 +1,95 @@
+#SPDX-License-Identifier: MIT-0
+---
+- name: Import the PGDG GPG signing key
+  ansible.builtin.rpm_key:
+    key: https://download.postgresql.org/pub/repos/yum/keys/PGDG-RPM-GPG-KEY-RHEL
+    state: present
+
+- name: Install official PGDG repository securely
+  ansible.builtin.dnf:
+    name: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-{{ ansible_facts['distribution_major_version'] }}-x86_64/pgdg-redhat-repo-latest.noarch.rpm"
+    state: present
+    disable_gpg_check: false
+
+- name: Install PostgreSQL
+  ansible.builtin.dnf:
+    name:
+      - postgresql16-server
+      - postgresql16-contrib
+      - python3-psycopg2
+    state: present
+
+- name: check if postgresql is initialized
+  ansible.builtin.stat:
+    path: /var/lib/pgsql/16/data/PG_VERSION
+  register: pg_initialized
+
+- name: View variable
+  debug:
+    var: pg_initialized
+
+- name: Intialize postgresql if it's not yet been initialized 
+  ansible.builtin.command: /usr/pgsql-16/bin/postgresql-16-setup initdb
+  when: not pg_initialized.stat.exists
+
+- name: configure postgresql.conf to listen on all interfaces
+  ansible.builtin.lineinfile:
+    path: /var/lib/pgsql/16/data/postgresql.conf
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line  }}"
+  loop:
+    - { regexp: '^#?listen_addresses\s*=', line: "listen_addresses = '*'" }
+    - { regexp: '^#?port\s*=', line: "port = 5432" }
+    - { regexp: '^#?max_connections\s*=', line: "max_connections = 200" }
+    - { regexp: '^#?shared_buffers\s*=', line: "shared_buffers = 256MB" }
+  notify: restart_postgresql
+
+- name: Configure pg_hba.conf file to allow only our web servers + localhost to authenticate
+  ansible.builtin.blockinfile:
+    path: /var/lib/pgsql/16/data/pg_hba.conf
+    marker: "# {mark} Ansible stuff - Django Servers managed by Ansible"
+    block: |
+      # Local app connections
+      host      django_db     django_user       127.0.0.1/32        scram-sha-256
+      host      django_db     django_user       ::1/128             scram-sha-256
+
+      # Allow Django webservers
+      {% for host in groups['webservers'] %}
+        host    django_db      django_user         {{ hostvars[host]['ansible_host'] | default(host) }}/32   scram-sha-256
+      {% endfor %}
+
+      # Local connections still use peer/ident
+  notify: restart_postgresql 
+
+
+- name: Start and enable PostgreSQL
+  ansible.builtin.service:
+    name: postgresql-16
+    state: started
+    enabled: true
+
+- name: Create project database
+  community.postgresql.postgresql_db:
+    name: django_db
+    encoding: UTF-8
+    state: present
+  become_user: postgres
+
+- name: Create project database role/user
+  community.postgresql.postgresql_user:
+    name: django_user
+    password: django_password
+    state: present
+    encrypted: true
+  become_user: postgres
+  no_log: true
+
+- name: grant schema privileges to the app role
+  community.postgresql.postgresql_privs:
+    database: django_db
+    state: present
+    type: schema
+    obj: public
+    roles: django_user
+    privs: ALL
+  become_user: postgres

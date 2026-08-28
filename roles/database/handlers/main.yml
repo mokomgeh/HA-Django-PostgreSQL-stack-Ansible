@@ -1,0 +1,8 @@
+#SPDX-License-Identifier: MIT-0
+---
+# handlers file for database
+
+- name: restart_postgresql
+  ansible.builtin.systemd:
+    name: "postgresql-16"
+    state: restarted
