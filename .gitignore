@@ -1,3 +1,58 @@
 .known_hosts
 execution.log
 .vagrant/
+
+# /*        Django Project                 */
+# Python bytecode cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments (Never commit these)
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables and sensitive secrets
+.env
+.env.+*
+secrets.json
+local_settings.py
+
+# Databases (Local development)
+*.sqlite3
+
+# Django media and collected static files
+media/
+static/
+staticfiles/
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Testing and coverage
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.layout
+.pytest_cache/

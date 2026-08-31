@@ -25,6 +25,25 @@
         state: started
         enabled: true
 
+    - name: Create application group
+      ansible.builtin.group:
+        name: django_user
+        state: present
+      when: inventory_hostname in groups['webservers'] or inventory_hostname in groups['database']
+
+    - name: Create application user on all nodes
+      ansible.builtin.user:
+        name: django_user
+        group: django_user
+        shell: /sbin/nologin
+        system: true
+        create_home: true
+        home: "/opt/django"
+      when: inventory_hostname in groups['webservers'] or inventory_hostname in groups['database']
+
+
+# Database Role 
+
 - name: Configure PostgreSQL database server
   hosts: database
   become: true
