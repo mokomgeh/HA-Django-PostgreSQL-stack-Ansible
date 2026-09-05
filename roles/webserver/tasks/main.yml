@@ -1,0 +1,125 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for webserver
+- name: Install OS packages needed to build/run the app (nginx, gcc, headers)
+  ansible.builtin.dnf:
+    name:
+      # - python3
+      # - python3-pip
+      - python3-devel
+      - gcc
+      - nginx
+      - libpq-devel
+      - openssl-devel
+      - rsync
+    state: present
+
+- name: Create django project directory structure
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: django_user
+    group: django_user
+    mode: "0750"
+  loop:
+    - "/opt/django"
+    - "/opt/django/myproject"
+    - "/opt/django/static"
+    - "/opt/django/media"
+    - "/opt/django/logs"
+
+- name: Move django app from this app to django webserver nodes
+  ansible.builtin.synchronize:
+    src: "{{ playbook_dir }}/../django_app/"
+    dest: "/opt/django/myproject"
+    delete: true
+    recursive: true
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
+      - "--exclude=venv"
+      - "--exclude=.env"
+      - "--exclude=staticfiles"
+  become: true
+  become_user: django_user
+  notify: restart gunicorn 
+
+- name: Create python virtual environment
+  ansible.builtin.command:
+    cmd: "python3 -m venv /opt/django/venv"
+    creates: "/opt/django/venv/bin/activate"
+  become_user: django_user
+
+- name: upgrade pip inside our virtual environment 
+  ansible.builtin.pip:
+    name:
+      - pip
+    state: latest
+    virtualenv: "/opt/django/venv"
+  become_user: django_user
+
+- name: Install django, gunicorn, psycopg2-binary
+  ansible.builtin.pip:
+    requirements: "/opt/django/myproject/requirements.txt"
+    virtualenv: "/opt/django/venv"
+  become_user: django_user
+
+
+- name: Collect static files into static_root
+  command: /opt/django/venv/bin/python manage.py collectstatic --noinput
+  args:
+    chdir: "/opt/django/myproject"
+  become: true
+  become_user: "django_user"
+  environment:
+    DJANGO_DB_NAME: django_db
+    DJANGO_DB_USER: django_user
+    DJANGO_DB_PASSWORD: django_user
+    DJANGO_DB_HOST: "{{ hostvars['db']['ansible_host'] | default('192.168.56.7') }}" 
+    DJANGO_DB_PORT: 5432
+    DJANGO_SETTINGS_MODULE: "config.settings"
+    DJANGO_DEBUG: "False"
+    DJANGO_TZ: "America/Toronto"
+  register: migrate_results
+  changed_when: "'No migrations to apply' not in migrate_results.stdout"
+  run_once: true
+
+
+  #######     Gunicorn stuff    ##############
+
+- name: Install Gunicorm systemd unit from template
+  ansible.builtin.template:
+    src: gunicorn.service.j2
+    dest: /etc/systemd/system/gunicorn.service
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart gunicorn
+
+- name: Enable and start Gunicorn
+  ansible.builtin.service:
+    name: gunicorn
+    state: started
+    enabled: true
+  
+
+########## Nginx stuff ################
+- name: Install Nginx site configuration
+  ansible.builtin.template:
+    src: nginx-django.conf.j2
+    dest: /etc/nginx/conf.d/django.conf
+    mode: "0644"
+  notify: reload nginx
+
+- name: Remove the default Nginx welcome page (if present)
+  ansible.builtin.file:
+    path: /etc/nginx/conf.d/default.conf
+    state: absent
+  notify: reload nginx
+
+- name: Enable and start Nginx
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true

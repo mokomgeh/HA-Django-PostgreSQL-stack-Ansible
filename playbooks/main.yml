@@ -52,3 +52,11 @@
   roles:
     - database
         
+- name: Configure Django Webservers
+  hosts: webservers
+  become: true
+  gather_facts: true
+  tags: [webservers, postgresql]
+  roles:
+    - webserver
+        

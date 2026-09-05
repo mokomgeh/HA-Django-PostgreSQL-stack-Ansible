@@ -89,7 +89,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "America/Toronto")
+TIME_ZONE = os.environ.get("DJANGO_TZ", "America/Toronto")
 USE_I18N = True
 USE_TZ = True
 
