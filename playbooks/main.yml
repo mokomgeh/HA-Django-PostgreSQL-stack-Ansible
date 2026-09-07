@@ -4,19 +4,18 @@
   gather_facts: true
 
   tasks:
-    - name: Add Epel repository
-      ansible.builtin.dnf:
-        name: epel-release
-        state: present
-    
     - name: Update system
       ansible.builtin.dnf:
         name: "*"
         state: latest
-      
-    - name: Update and install packages
+
+    - name: Add Epel repository
       ansible.builtin.dnf:
-        name: firewalld
+        name: 
+          - epel-release
+          - firewalld
+          - python3
+          - python3-pip
         state: present
 
     - name: Start and enable firewalld
@@ -24,6 +23,21 @@
         name: firewalld
         state: started
         enabled: true
+
+    - name: Allow HTTP through firewalld
+      ansible.posix.firewalld:
+        service: http
+        permanent: true
+        state: enabled
+        immediate: true
+
+    - name: Disable SELinux # (For testing)
+      ansible.posix.selinux:
+        policy: "targeted"
+        state: "disabled"
+      register: selinux_result
+      # Only reboot if the policy actually changed and a reboot is required
+      notify: reboot
 
     - name: Create application group
       ansible.builtin.group:
@@ -40,6 +54,13 @@
         create_home: true
         home: "/opt/django"
       when: inventory_hostname in groups['webservers'] or inventory_hostname in groups['database']
+  
+  handlers:
+    - name: reboot
+      reboot:
+        msg: "Reboot triggered by SELinux policy change"
+        connect_timeout: 5
+        reboot_timeout: 300
 
 
 # Database Role 
@@ -59,4 +80,13 @@
   tags: [webservers, postgresql]
   roles:
     - webserver
+
+
+- name: "4. Configure the HAProxy load balancer"
+  hosts: loadbalancer
+  become: true
+  gather_facts: true
+  roles:
+    - haproxy
+
         

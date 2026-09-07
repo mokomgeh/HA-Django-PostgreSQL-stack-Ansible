@@ -31,7 +31,7 @@
 - name: Move django app from this app to django webserver nodes
   ansible.builtin.synchronize:
     src: "{{ playbook_dir }}/../django_app/"
-    dest: "/opt/django/myproject"
+    dest: "/opt/django/myproject/"
     delete: true
     recursive: true
     rsync_opts:
@@ -53,8 +53,7 @@
 
 - name: upgrade pip inside our virtual environment 
   ansible.builtin.pip:
-    name:
-      - pip
+    name: pip
     state: latest
     virtualenv: "/opt/django/venv"
   become_user: django_user
@@ -64,6 +63,7 @@
     requirements: "/opt/django/myproject/requirements.txt"
     virtualenv: "/opt/django/venv"
   become_user: django_user
+  notify: restart gunicorn
 
 
 - name: Collect static files into static_root
@@ -75,15 +75,87 @@
   environment:
     DJANGO_DB_NAME: django_db
     DJANGO_DB_USER: django_user
-    DJANGO_DB_PASSWORD: django_user
+    DJANGO_DB_PASSWORD: django_password
     DJANGO_DB_HOST: "{{ hostvars['db']['ansible_host'] | default('192.168.56.7') }}" 
-    DJANGO_DB_PORT: 5432
+    DJANGO_DB_PORT: "5432"
     DJANGO_SETTINGS_MODULE: "config.settings"
     DJANGO_DEBUG: "False"
     DJANGO_TZ: "America/Toronto"
-  register: migrate_results
-  changed_when: "'No migrations to apply' not in migrate_results.stdout"
+  changed_when: false   # collectstatic is noisy; we ignore "changed"   
+
+- name: Apply database migrations
+  command: "/opt/django/venv/bin/python manage.py migrate --noinput"
+  args:
+    chdir: "/opt/django/myproject"
+  become: true
+  become_user: "django_user"
+  environment:
+    DJANGO_DB_NAME: django_db
+    DJANGO_DB_USER: django_user
+    DJANGO_DB_PASSWORD: django_password
+    DJANGO_DB_HOST: "{{ hostvars['db']['ansible_host'] | default('192.168.56.7') }}" 
+    DJANGO_DB_PORT: "5432"
+    DJANGO_SETTINGS_MODULE: "config.settings"
+    DJANGO_DEBUG: "False"
+    DJANGO_TZ: "America/Toronto"
+  register: migrate_result
+  changed_when: "'No migrations to apply' not in migrate_result.stdout"
   run_once: true
+
+##############  SELINUX    ########################
+# --------------------------------------------------------------------------
+# SELinux – force venv binaries to bin_t (fixes 203/EXEC)
+# --------------------------------------------------------------------------
+
+# - name: Install SELinux policy tools
+#   dnf:
+#     name:
+#       - policycoreutils-python-utils
+#       - policycoreutils
+#     state: present
+
+# # Drop a broad httpd_sys_content_t rule on the whole tree if it exists
+# # (that label is why gunicorn is still httpd_sys_content_t)
+# - name: SELinux – remove broad httpd_sys_content_t rule on django_home if present
+#   command: semanage fcontext -d '/opt/django(/.*)?'
+#   register: semanage_del
+#   changed_when: semanage_del.rc == 0
+#   failed_when: false
+
+# - name: SELinux – permanent bin_t for venv/bin
+#   command: semanage fcontext -a -t bin_t '/opt/django/venv/bin(/.*)?'
+#   register: semanage_bin
+#   changed_when: semanage_bin.rc == 0
+#   failed_when:
+#     - semanage_bin.rc != 0
+#     - "'already defined' not in (semanage_bin.stderr | default(''))"
+#     - "'File context already defined' not in (semanage_bin.stderr | default(''))"
+
+# - name: SELinux – permanent usr_t for the rest of the app tree
+#   command: semanage fcontext -a -t usr_t '/opt/django(/.*)?'
+#   register: semanage_usr
+#   changed_when: semanage_usr.rc == 0
+#   failed_when:
+#     - semanage_usr.rc != 0
+#     - "'already defined' not in (semanage_usr.stderr | default(''))"
+#     - "'File context already defined' not in (semanage_usr.stderr | default(''))"
+
+# # Apply policy database labels
+# - name: SELinux – restorecon on django_home
+#   command: restorecon -Rv /opt/django
+#   changed_when: false
+
+# # Force the running label on the binaries right now (belt and suspenders)
+# - name: SELinux – chcon bin_t on venv/bin immediately
+#   command: chcon -R -t bin_t /opt/django/venv/bin
+#   changed_when: true
+
+# - name: SELinux – allow Nginx → Gunicorn
+#   seboolean:
+#     name: httpd_can_network_connect
+#     state: true
+#     persistent: true
+
 
 
   #######     Gunicorn stuff    ##############
@@ -123,3 +195,11 @@
     name: nginx
     state: started
     enabled: true
+
+
+- name: Allow HTTP through firewalld
+  firewalld:
+    service: http
+    permanent: true
+    state: enabled
+    immediate: true

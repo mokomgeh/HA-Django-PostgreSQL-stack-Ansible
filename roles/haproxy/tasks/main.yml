@@ -1,0 +1,45 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for haproxy
+
+- name: Installing haproxy
+  ansible.builtin.dnf:
+    name: haproxy
+    state: present
+
+- name: Install SELinux management tools and Python bindings
+  ansible.builtin.dnf:
+    name:
+      - python3-libsemanage
+      - policycoreutils-python-utils
+    state: present
+
+- name: deploy haproxy configuration
+  ansible.builtin.template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    mode: "0644"
+    validate: haproxy -c -f %s
+  notify: reload haproxy
+
+- name: Open frontend and stats ports in firewalld
+  ansible.posix.firewalld:
+    port: "{{ item }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  loop:
+    - 80
+    - 8404
+
+# - name: SELinux – allow HAProxy broader connectivity if required
+#   seboolean:
+#     name: haproxy_connect_any
+#     state: true
+#     persistent: true
+
+# - name: Enable and start HAProxy
+#   ansible.builtin.service:
+#     name: haproxy
+#     state: started
+#     enabled: true

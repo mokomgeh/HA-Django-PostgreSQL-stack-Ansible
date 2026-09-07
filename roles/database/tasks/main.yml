@@ -93,3 +93,11 @@
     roles: django_user
     privs: ALL
   become_user: postgres
+
+- name: Open TCP port 5432 permanently
+  ansible.posix.firewalld:
+    port: 5432/tcp
+    permanent: true
+    state: enabled
+    immediate: true
+  notify: reload firewalld

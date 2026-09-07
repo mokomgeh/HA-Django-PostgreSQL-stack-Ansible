@@ -45,7 +45,7 @@ def index(request):
         'message': message,
         'note_count': Note.objects.count(),
     }
-    return render(request, 'notes/index.html', context)
+    return render(request, 'core/index.html', context)
 
 
 def health(request):

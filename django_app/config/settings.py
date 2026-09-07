@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-load_dotenv(BASE_DIR / ".env")
+# load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-6-tst=$-tfb)o@9l1^t6r2!%f5f3$%w()dco7vlb4d9&t!%u)*")
 
@@ -71,8 +71,9 @@ DATABASES = {
         # "USER": os.environ.get("DJANGO_DB_USER", "myapp_user"),
         "NAME": os.environ.get("DJANGO_DB_NAME", "django_db"),
         "USER": os.environ.get("DJANGO_DB_USER", "django_user"),
-        "PASSWORD": os.environ.get("DJANGO_DB_PASSWORD", "django_user"),
-        "HOST": os.environ.get("DJANGO_DB_HOST", "127.0.0.1"),
+        "PASSWORD": os.environ.get("DJANGO_DB_PASSWORD", "django_password"),
+        # "HOST": os.environ.get("DJANGO_DB_HOST", "192.168.56.7"),
+        "HOST": os.environ.get("DJANGO_DB_HOST", "192.168.56.7"),
         "PORT": os.environ.get("DJANGO_DB_PORT", "5432"),
         "CONN_MAX_AGE": 60,
         "OPTIONS": {
