@@ -1,0 +1,63 @@
+#### Variables here apply to all hosts #####
+project_name: "myproject"
+
+project_timezone: "America/Toronto"
+
+
+###### Django Application variables ######
+django_user: django
+
+django_group: django
+
+django_home: /opt/django
+
+django_app_base_dir: "{{ django_home }}/{{ project_name }}"
+
+django_app_venv_dir: "{{ django_home }}/venv"
+
+django_app_src_path: "{{ playbook_dir }}/app"
+
+django_project_module: config
+
+django_settings_module: "{{ django_project_module }}.settings"
+
+django_allowed_hosts: 
+  - "*"
+
+django_debug: false
+
+###### Gunicorn  variabels   ##################
+gunicorn_workers: 3
+
+gunicorn_bind_socket: "{{ django_app_base_dir }}/run/gunicorn.sock"
+
+
+####### Database Variables    ################
+postgresql_version: "16"
+
+postgresql_db: "{{ project_name }}_db"
+
+postgresql_app_user: "{{ project_name }}_user"
+
+postgresql_data_dir: "/var/lib/pgsql/{{ postgresql_version }}/data"
+
+postgresql_listen_port: 5432
+
+
+#########  HAproxy Variables #############
+haproxy_frontend_port: 80
+
+haproxy_stats_port: 8404
+
+haproxy_stats_user: admin
+
+
+############  Aliases for variables in .env file ##########
+postgresql_app_password: "{{ vault_postgresql_password }}"
+
+django_secret_key: "{{ vault_django_secret_key }}"
+
+haproxy_stats_password: "{{ vault_haproxy_stats_password }}"
+
+
+

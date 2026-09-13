@@ -41,18 +41,18 @@
 
     - name: Create application group
       ansible.builtin.group:
-        name: django_user
+        name: "{{ django_group }}"
         state: present
       when: inventory_hostname in groups['webservers'] or inventory_hostname in groups['database']
 
     - name: Create application user on all nodes
       ansible.builtin.user:
-        name: django_user
-        group: django_user
+        name: "{{ django_user }}"
+        group: "{{ django_group }}"
         shell: /sbin/nologin
         system: true
         create_home: true
-        home: "/opt/django"
+        home: "{{ django_home }}"
       when: inventory_hostname in groups['webservers'] or inventory_hostname in groups['database']
   
   handlers:
@@ -82,7 +82,7 @@
     - webserver
 
 
-- name: "4. Configure the HAProxy load balancer"
+- name: "Configure the HAProxy load balancer"
   hosts: loadbalancer
   become: true
   gather_facts: true

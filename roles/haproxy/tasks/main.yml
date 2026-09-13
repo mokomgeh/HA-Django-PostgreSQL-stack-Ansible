@@ -31,15 +31,3 @@
   loop:
     - 80
     - 8404
-
-# - name: SELinux – allow HAProxy broader connectivity if required
-#   seboolean:
-#     name: haproxy_connect_any
-#     state: true
-#     persistent: true
-
-# - name: Enable and start HAProxy
-#   ansible.builtin.service:
-#     name: haproxy
-#     state: started
-#     enabled: true

@@ -11,9 +11,9 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR / ".env")
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "django-insecure-6-tst=$-tfb)o@9l1^t6r2!%f5f3$%w()dco7vlb4d9&t!%u)*")
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
 
 DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 
@@ -60,24 +60,19 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# --- Database: the single shared PostgreSQL node (db01) --------------------
-# Every web node points at the SAME database. That's what makes it safe for
-# HAProxy to send a given user's requests to either web01 or web02
-# interchangeably — the data they see doesn't depend on which node answered.
+# --- Database: the single shared PostgreSQL node --------------------
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        # "NAME": os.environ.get("DJANGO_DB_NAME", "myapp_db"),
-        # "USER": os.environ.get("DJANGO_DB_USER", "myapp_user"),
         "NAME": os.environ.get("DJANGO_DB_NAME", "django_db"),
         "USER": os.environ.get("DJANGO_DB_USER", "django_user"),
-        "PASSWORD": os.environ.get("DJANGO_DB_PASSWORD", "django_password"),
-        # "HOST": os.environ.get("DJANGO_DB_HOST", "192.168.56.7"),
-        "HOST": os.environ.get("DJANGO_DB_HOST", "192.168.56.7"),
+        "PASSWORD": os.environ.get("DJANGO_DB_PASSWORD", ""),
+        "HOST": os.environ.get("DJANGO_DB_HOST", "127.0.0.1"),
         "PORT": os.environ.get("DJANGO_DB_PORT", "5432"),
-        "CONN_MAX_AGE": 60,
+        "CONN_MAX_AGE": 60,         # keep db connection alive for 60seconds before
         "OPTIONS": {
-            'connect_timeout': 5
+            'connect_timeout': 5 # wait 5secs in db looses connection
         }
     }
 }

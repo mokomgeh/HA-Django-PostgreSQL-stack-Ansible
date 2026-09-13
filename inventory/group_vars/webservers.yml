@@ -1,0 +1,14 @@
+---
+django_db_host: "{{ hostvars[groups['database'][0]]['ansible_host'] }}"
+django_db_port: "{{ postgresql_listen_port }}"
+django_app_port: 8000
+
+# Gunicorn
+gunicorn_workers: 3
+
+# The port Nginx listens on for HAProxy to forward traffic to.
+nginx_listen_port: 80
+
+
+# Nginx client max body size
+nginx_client_max_body_size: 20M

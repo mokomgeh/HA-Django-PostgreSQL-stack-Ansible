@@ -18,20 +18,21 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    owner: django_user
-    group: django_user
-    mode: "0750"
+    owner: "{{ django_user }}"
+    group: "{{ django_group }}"
+    mode: "0755"
   loop:
-    - "/opt/django"
-    - "/opt/django/myproject"
-    - "/opt/django/static"
-    - "/opt/django/media"
-    - "/opt/django/logs"
-
+    - "{{ django_home }}"
+    - "{{ django_app_base_dir }}"
+    - "{{ django_app_base_dir }}/static"
+    - "{{ django_app_base_dir }}/media"
+    - "{{ django_app_base_dir }}/logs"
+    - "{{ django_app_base_dir }}/run"
+    
 - name: Move django app from this app to django webserver nodes
   ansible.builtin.synchronize:
     src: "{{ playbook_dir }}/../django_app/"
-    dest: "/opt/django/myproject/"
+    dest: "{{ django_app_base_dir }}"
     delete: true
     recursive: true
     rsync_opts:
@@ -41,124 +42,78 @@
       - "--exclude=venv"
       - "--exclude=.env"
       - "--exclude=staticfiles"
+      - "--exclude=static"       # <-- add
+      - "--exclude=media"        # <-- add
+      - "--exclude=logs"         # <-- add
+      - "--exclude=run" 
   become: true
-  become_user: django_user
+  become_user: "{{ django_user }}"
   notify: restart gunicorn 
 
 - name: Create python virtual environment
   ansible.builtin.command:
-    cmd: "python3 -m venv /opt/django/venv"
-    creates: "/opt/django/venv/bin/activate"
-  become_user: django_user
+    cmd: "python3 -m venv {{ django_app_venv_dir }}"
+    creates: "{{ django_app_venv_dir }}/bin/activate"
+  become_user: "{{ django_user }}"
 
 - name: upgrade pip inside our virtual environment 
   ansible.builtin.pip:
     name: pip
     state: latest
-    virtualenv: "/opt/django/venv"
-  become_user: django_user
+    virtualenv: "{{ django_app_venv_dir }}"
+  become_user: "{{ django_user }}"
 
 - name: Install django, gunicorn, psycopg2-binary
   ansible.builtin.pip:
-    requirements: "/opt/django/myproject/requirements.txt"
-    virtualenv: "/opt/django/venv"
-  become_user: django_user
+    requirements: "{{ django_app_base_dir }}/requirements.txt"
+    virtualenv: "{{ django_app_venv_dir }}"
+  become_user: "{{ django_user }}"
   notify: restart gunicorn
 
 
+- name: Render .env file used by django's settings.py file
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ django_app_base_dir }}/.env"
+    owner: "{{ django_user }}"
+    group: "{{ django_group }}"
+    mode: "0600"
+  no_log: true
+  notify: restart gunicorn
+
 - name: Collect static files into static_root
-  command: /opt/django/venv/bin/python manage.py collectstatic --noinput
+  command: "{{ django_app_venv_dir }}/bin/python manage.py collectstatic --noinput"
   args:
-    chdir: "/opt/django/myproject"
+    chdir: "{{ django_app_base_dir }}"
   become: true
-  become_user: "django_user"
+  become_user: "{{ django_user }}"
   environment:
-    DJANGO_DB_NAME: django_db
-    DJANGO_DB_USER: django_user
-    DJANGO_DB_PASSWORD: django_password
-    DJANGO_DB_HOST: "{{ hostvars['db']['ansible_host'] | default('192.168.56.7') }}" 
-    DJANGO_DB_PORT: "5432"
-    DJANGO_SETTINGS_MODULE: "config.settings"
-    DJANGO_DEBUG: "False"
-    DJANGO_TZ: "America/Toronto"
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
   changed_when: false   # collectstatic is noisy; we ignore "changed"   
 
 - name: Apply database migrations
   command: "/opt/django/venv/bin/python manage.py migrate --noinput"
   args:
-    chdir: "/opt/django/myproject"
+    chdir: "{{ django_app_base_dir }}"
   become: true
-  become_user: "django_user"
+  become_user: "{{ django_user }}"
   environment:
-    DJANGO_DB_NAME: django_db
-    DJANGO_DB_USER: django_user
-    DJANGO_DB_PASSWORD: django_password
-    DJANGO_DB_HOST: "{{ hostvars['db']['ansible_host'] | default('192.168.56.7') }}" 
-    DJANGO_DB_PORT: "5432"
-    DJANGO_SETTINGS_MODULE: "config.settings"
-    DJANGO_DEBUG: "False"
-    DJANGO_TZ: "America/Toronto"
+    DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
   register: migrate_result
   changed_when: "'No migrations to apply' not in migrate_result.stdout"
   run_once: true
 
-##############  SELINUX    ########################
-# --------------------------------------------------------------------------
-# SELinux – force venv binaries to bin_t (fixes 203/EXEC)
-# --------------------------------------------------------------------------
-
-# - name: Install SELinux policy tools
-#   dnf:
-#     name:
-#       - policycoreutils-python-utils
-#       - policycoreutils
-#     state: present
-
-# # Drop a broad httpd_sys_content_t rule on the whole tree if it exists
-# # (that label is why gunicorn is still httpd_sys_content_t)
-# - name: SELinux – remove broad httpd_sys_content_t rule on django_home if present
-#   command: semanage fcontext -d '/opt/django(/.*)?'
-#   register: semanage_del
-#   changed_when: semanage_del.rc == 0
-#   failed_when: false
-
-# - name: SELinux – permanent bin_t for venv/bin
-#   command: semanage fcontext -a -t bin_t '/opt/django/venv/bin(/.*)?'
-#   register: semanage_bin
-#   changed_when: semanage_bin.rc == 0
-#   failed_when:
-#     - semanage_bin.rc != 0
-#     - "'already defined' not in (semanage_bin.stderr | default(''))"
-#     - "'File context already defined' not in (semanage_bin.stderr | default(''))"
-
-# - name: SELinux – permanent usr_t for the rest of the app tree
-#   command: semanage fcontext -a -t usr_t '/opt/django(/.*)?'
-#   register: semanage_usr
-#   changed_when: semanage_usr.rc == 0
-#   failed_when:
-#     - semanage_usr.rc != 0
-#     - "'already defined' not in (semanage_usr.stderr | default(''))"
-#     - "'File context already defined' not in (semanage_usr.stderr | default(''))"
-
-# # Apply policy database labels
-# - name: SELinux – restorecon on django_home
-#   command: restorecon -Rv /opt/django
-#   changed_when: false
-
-# # Force the running label on the binaries right now (belt and suspenders)
-# - name: SELinux – chcon bin_t on venv/bin immediately
-#   command: chcon -R -t bin_t /opt/django/venv/bin
-#   changed_when: true
-
-# - name: SELinux – allow Nginx → Gunicorn
-#   seboolean:
-#     name: httpd_can_network_connect
-#     state: true
-#     persistent: true
-
 
 
   #######     Gunicorn stuff    ##############
+
+# - name: Deploy the Gunicorn systemd socket unit
+#   ansible.builtin.template:
+#     src: gunicorn.socket.j2
+#     dest: /etc/systemd/system/gunicorn.socket
+#     mode: "0644"
+#   when: use_unix_socket | bool
+#   notify: reload systemd
 
 - name: Install Gunicorm systemd unit from template
   ansible.builtin.template:
@@ -180,7 +135,7 @@
 - name: Install Nginx site configuration
   ansible.builtin.template:
     src: nginx-django.conf.j2
-    dest: /etc/nginx/conf.d/django.conf
+    dest: /etc/nginx/conf.d/{{ project_name }}.conf
     mode: "0644"
   notify: reload nginx
 
@@ -197,9 +152,3 @@
     enabled: true
 
 
-- name: Allow HTTP through firewalld
-  firewalld:
-    service: http
-    permanent: true
-    state: enabled
-    immediate: true

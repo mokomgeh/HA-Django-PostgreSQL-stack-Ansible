@@ -4,7 +4,7 @@
 
 - name: restart_postgresql
   ansible.builtin.systemd:
-    name: "postgresql-16"
+    name: "postgresql-{{ postgresql_version }}"
     state: restarted
 
 - name: reload firewalld

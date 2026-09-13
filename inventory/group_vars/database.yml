@@ -1,0 +1,3 @@
+---
+# List of IP addresses allowed to authenticate to Postgres. Used when rendering pg_hba.conf
+postgresql_allowed_hosts: "{{ groups['webservers'] | map('extract', hostvars, 'ansible_host') | list }}" 

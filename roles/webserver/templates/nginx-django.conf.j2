@@ -1,16 +1,21 @@
 # Ansible managed – Nginx reverse proxy for the Django HA demo
 
-upstream django_app {
+upstream {{ project_name }}_app {
     # Local Gunicorn only. HAProxy load-balances between the two web nodes.
-    server 127.0.0.1:8000 fail_timeout=0;
+    
+    server 127.0.0.1:{{ django_app_port | default(8000) }} fail_timeout=0;
+    
 }
 
 server {
-    listen 80 default_server;
+    listen {{ nginx_listen_port }};
     server_name _;
 
-    #client_max_body_size {{ nginx_client_max_body_size | default('20M') }};
-    client_max_body_size 20M;
+    client_max_body_size {{ nginx_client_max_body_size | default('20M') }};
+    
+    access_log {{ django_app_base_dir }}/logs/nginx-access.log;
+    error_log {{ django_app_base_dir }}/logs/nginx-error.log;
+
 
     # Static files served directly by Nginx
     location /static/ {
@@ -24,10 +29,11 @@ server {
     }
 
     location / {
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Host              $http_host;
+        proxy_set_header X-Forwarded-For        $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto      $scheme;
+        proxy_set_header Host                   $http_host;
+        proxy_set_header X-Real-IP              $remote_addr;
         proxy_redirect off;
-        proxy_pass http://django_app;
+        proxy_pass http://{{ project_name }}_app;
     }
 }

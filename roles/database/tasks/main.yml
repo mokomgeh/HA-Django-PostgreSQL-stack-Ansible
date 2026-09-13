@@ -14,14 +14,14 @@
 - name: Install PostgreSQL
   ansible.builtin.dnf:
     name:
-      - postgresql16-server
-      - postgresql16-contrib
+      - "postgresql{{ postgresql_version }}-server"
+      - "postgresql{{ postgresql_version }}-contrib"
       - python3-psycopg2
     state: present
 
 - name: check if postgresql is initialized
   ansible.builtin.stat:
-    path: /var/lib/pgsql/16/data/PG_VERSION
+    path: "{{ postgresql_data_dir }}/PG_VERSION"
   register: pg_initialized
 
 - name: View variable
@@ -29,33 +29,34 @@
     var: pg_initialized
 
 - name: Intialize postgresql if it's not yet been initialized 
-  ansible.builtin.command: /usr/pgsql-16/bin/postgresql-16-setup initdb
+  ansible.builtin.command: "/usr/pgsql-{{ postgresql_version }}/bin/postgresql-{{ postgresql_version }}-setup initdb"
   when: not pg_initialized.stat.exists
 
 - name: configure postgresql.conf to listen on all interfaces
   ansible.builtin.lineinfile:
-    path: /var/lib/pgsql/16/data/postgresql.conf
+    path: "{{ postgresql_data_dir }}/postgresql.conf"
     regexp: "{{ item.regexp }}"
     line: "{{ item.line  }}"
   loop:
     - { regexp: '^#?listen_addresses\s*=', line: "listen_addresses = '*'" }
-    - { regexp: '^#?port\s*=', line: "port = 5432" }
-    - { regexp: '^#?max_connections\s*=', line: "max_connections = 200" }
-    - { regexp: '^#?shared_buffers\s*=', line: "shared_buffers = 256MB" }
+    - { regexp: '^#?port\s*=', line: "port = {{ postgresql_listen_port }}" }
+    - { regexp: '^#?max_connections\s*=', line: "max_connections = {{ postgresql_max_connections }}" }
+    - { regexp: '^#?shared_buffers\s*=', line: "shared_buffers = {{ postgresql_shared_buffers }}" }
+    - { regexp: '^#?effective_cache_size\s*=', line: "effective_cache_size = {{ postgresql_effective_cache_size }}" }
   notify: restart_postgresql
 
 - name: Configure pg_hba.conf file to allow only our web servers + localhost to authenticate
   ansible.builtin.blockinfile:
-    path: /var/lib/pgsql/16/data/pg_hba.conf
-    marker: "# {mark} Ansible stuff - Django Servers managed by Ansible"
+    path: "{{ postgresql_data_dir }}/pg_hba.conf"
+    marker: "# {mark} Ansible stuff"
     block: |
       # Local app connections
-      host      django_db     django_user       127.0.0.1/32        scram-sha-256
-      host      django_db     django_user       ::1/128             scram-sha-256
+      host      {{ postgresql_db }}     {{ postgresql_app_user }}       127.0.0.1/32        scram-sha-256
+      host      {{ postgresql_db }}     {{ postgresql_app_user }}       ::1/128             scram-sha-256
 
       # Allow Django webservers
-      {% for host in groups['webservers'] %}
-        host    django_db      django_user         {{ hostvars[host]['ansible_host'] | default(host) }}/32   scram-sha-256
+      {% for host_IP in postgresql_allowed_hosts %}
+        host    {{ postgresql_db }}      {{ postgresql_app_user }}      {{ host_IP }}/32   scram-sha-256
       {% endfor %}
 
       # Local connections still use peer/ident
@@ -64,21 +65,21 @@
 
 - name: Start and enable PostgreSQL
   ansible.builtin.service:
-    name: postgresql-16
+    name: "postgresql-{{ postgresql_version }}"
     state: started
     enabled: true
 
 - name: Create project database
   community.postgresql.postgresql_db:
-    name: django_db
+    name: "{{ postgresql_db }}"
     encoding: UTF-8
     state: present
   become_user: postgres
 
 - name: Create project database role/user
   community.postgresql.postgresql_user:
-    name: django_user
-    password: django_password
+    name: "{{ postgresql_app_user }}"
+    password: "{{ postgresql_app_password }}"
     state: present
     encrypted: true
   become_user: postgres
@@ -86,11 +87,11 @@
 
 - name: grant schema privileges to the app role
   community.postgresql.postgresql_privs:
-    database: django_db
+    database: "{{ postgresql_db }}"
     state: present
     type: schema
     obj: public
-    roles: django_user
+    roles: "{{ postgresql_app_user }}"
     privs: ALL
   become_user: postgres
 
