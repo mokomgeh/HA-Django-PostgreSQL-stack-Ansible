@@ -1,0 +1,93 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for selinux_firewalld
+- name: ensure SELinux management packages are installed
+  ansible.builtin.dnf:
+    name:
+      - libselinux-utils
+      - policycoreutils-python-utils
+    state: present
+
+- name: ensure SELinux is set to enforcing
+  ansible.posix.selinux:
+    policy: "{{ selinux_policy }}"
+    state: "{{ selinux_state }}"
+  register: selinux_result
+
+- name: reboot if SELinux state changed (because an SELinux policy change requires a relabel + reboot)
+  ansible.builtin.reboot:
+    reboot_timeout: 300
+  when: selinux_result.reboot_required | default(false)
+
+- name: ensure firewalld is running and enabled
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: true
+
+### Tasks related to Loadbalancer
+- name: "open HTTP,HTTPS and HAProxy stats port in firewalld"
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true    
+    immediate: true   
+    state: enabled
+  loop:
+    - "80/tcp"
+    - "443/tcp"
+    - "{{ haproxy_stats_port }}/tcp"
+  when: "'loadbalancer' in group_names"
+
+- name: "allow haproxy to connect out to any port"
+  ansible.posix.seboolean:
+    name: haproxy_connect_any
+    state: true
+    persistent: true  
+  when: "'loadbalancer' in group_names"
+
+### Tasks related to webserver nodes
+- name: "open HTTP and HTTPS in firewalld"
+  ansible.posix.firewalld:
+    service: "{{ item }}"
+    permanent: true
+    immediate: true
+    state: enabled
+  loop:
+    - http
+    - https
+  when: "'webservers' in group_names"
+
+- name: "allow httpd/nginx to make network connections"
+  ansible.posix.seboolean:
+    name: httpd_can_network_connect
+    state: true
+    persistent: true
+  when: "'webservers' in group_names"
+
+- name: "allow httpd/nginx to connect specifically to database ports"
+  ansible.posix.seboolean:
+    name: httpd_can_network_connect_db
+    state: true
+    persistent: true
+  when: "'webservers' in group_names"
+
+
+### Tasks related to database node
+- name: "open PostgreSQL port to web server IPs only" # only nodes in webserver has access to postgresql port rather than all nodes
+  ansible.posix.firewalld:
+    rich_rule: >-
+      rule family="ipv4"
+      source address="{{ item }}"
+      port protocol="tcp" port="{{ postgresql_listen_port }}"
+      accept
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ groups['webservers'] | map('extract', hostvars, 'ansible_host') | list }}"
+  when: "'database' in group_names"
+
+- name: "ensure the postgres data directory has correct SELinux context"
+  ansible.builtin.command: "restorecon -Rv {{ postgresql_data_dir }}"
+  changed_when: false
+  failed_when: false
+  when: "'database' in group_names"

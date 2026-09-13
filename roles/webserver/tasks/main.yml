@@ -25,9 +25,16 @@
     - "{{ django_home }}"
     - "{{ django_app_base_dir }}"
     - "{{ django_app_base_dir }}/static"
+    - "{{ django_app_base_dir }}/staticfiles"
     - "{{ django_app_base_dir }}/media"
-    - "{{ django_app_base_dir }}/logs"
-    - "{{ django_app_base_dir }}/run"
+
+- name: Create logs directory (shared by Gunicorn and Nginx)
+  ansible.builtin.file:
+    path: "{{ django_app_base_dir }}/logs"
+    state: directory
+    owner: "{{ django_user }}"
+    group: nginx
+    mode: "2770"   # setgid: new files inherit group 'nginx'
     
 - name: Move django app from this app to django webserver nodes
   ansible.builtin.synchronize:
@@ -42,9 +49,9 @@
       - "--exclude=venv"
       - "--exclude=.env"
       - "--exclude=staticfiles"
-      - "--exclude=static"       # <-- add
-      - "--exclude=media"        # <-- add
-      - "--exclude=logs"         # <-- add
+      - "--exclude=static"       
+      - "--exclude=media"        
+      - "--exclude=logs"         
       - "--exclude=run" 
   become: true
   become_user: "{{ django_user }}"
@@ -89,7 +96,7 @@
   become_user: "{{ django_user }}"
   environment:
     DJANGO_SETTINGS_MODULE: "{{ django_settings_module }}"
-  changed_when: false   # collectstatic is noisy; we ignore "changed"   
+  changed_when: false   # because collectstatic is noisy; we ignore "changed"   
 
 - name: Apply database migrations
   command: "/opt/django/venv/bin/python manage.py migrate --noinput"
@@ -106,14 +113,6 @@
 
 
   #######     Gunicorn stuff    ##############
-
-# - name: Deploy the Gunicorn systemd socket unit
-#   ansible.builtin.template:
-#     src: gunicorn.socket.j2
-#     dest: /etc/systemd/system/gunicorn.socket
-#     mode: "0644"
-#   when: use_unix_socket | bool
-#   notify: reload systemd
 
 - name: Install Gunicorm systemd unit from template
   ansible.builtin.template:
@@ -145,10 +144,38 @@
     state: absent
   notify: reload nginx
 
+- name: "SELinux policy to allow nginx to read app's static, media, and staticfiles directories"
+  community.general.sefcontext:
+    target: "{{ django_app_base_dir }}/{{ item }}(/.*)?"
+    setype: httpd_sys_content_t
+    state: present
+  loop:
+    - staticfiles
+    - media
+    - static
+  register: sefcontext_static
+
+- name: Apply SELinux context to static/media/staticfiles
+  ansible.builtin.command:
+    cmd: "restorecon -Rv {{ django_app_base_dir }}/staticfiles {{ django_app_base_dir }}/media {{ django_app_base_dir }}/static"
+  when: sefcontext_static.changed
+  changed_when: false
+
+- name: "SELinux policy to allow nginx to write its access/error logs"
+  community.general.sefcontext:
+    target: "{{ django_app_base_dir }}/logs(/.*)?"
+    setype: httpd_log_t
+    state: present
+  register: sefcontext_logs
+
+- name: Apply SELinux context to logs directory
+  ansible.builtin.command:
+    cmd: "restorecon -Rv {{ django_app_base_dir }}/logs"
+  when: sefcontext_logs.changed
+  changed_when: false
+
 - name: Enable and start Nginx
   ansible.builtin.service:
     name: nginx
     state: started
     enabled: true
-
-

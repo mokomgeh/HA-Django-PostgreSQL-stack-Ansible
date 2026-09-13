@@ -61,3 +61,6 @@ haproxy_stats_password: "{{ vault_haproxy_stats_password }}"
 
 
 
+selinux_policy: targeted
+selinux_state: enforcing
+

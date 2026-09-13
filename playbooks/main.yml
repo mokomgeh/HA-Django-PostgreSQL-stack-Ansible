@@ -31,13 +31,13 @@
         state: enabled
         immediate: true
 
-    - name: Disable SELinux # (For testing)
-      ansible.posix.selinux:
-        policy: "targeted"
-        state: "disabled"
-      register: selinux_result
-      # Only reboot if the policy actually changed and a reboot is required
-      notify: reboot
+    # - name: Disable SELinux # (For testing)
+    #   ansible.posix.selinux:
+    #     policy: "targeted"
+    #     state: "disabled"
+    #   register: selinux_result
+    #   # Only reboot if the policy actually changed and a reboot is required
+      # notify: reboot
 
     - name: Create application group
       ansible.builtin.group:
@@ -55,21 +55,29 @@
         home: "{{ django_home }}"
       when: inventory_hostname in groups['webservers'] or inventory_hostname in groups['database']
   
-  handlers:
-    - name: reboot
-      reboot:
-        msg: "Reboot triggered by SELinux policy change"
-        connect_timeout: 5
-        reboot_timeout: 300
+  # handlers:
+  #   - name: reboot
+  #     reboot:
+  #       msg: "Reboot triggered by SELinux policy change"
+  #       connect_timeout: 5
+  #       reboot_timeout: 300
+
+
+
+
+- name: SELinux and Firewalld hardening on every node
+  hosts: all
+  become: true
+  gather_facts: true
+  roles:
+    - selinux_firewalld
 
 
 # Database Role 
-
 - name: Configure PostgreSQL database server
   hosts: database
   become: true
   gather_facts: true
-  tags: [database, postgresql]
   roles:
     - database
         
@@ -77,7 +85,6 @@
   hosts: webservers
   become: true
   gather_facts: true
-  tags: [webservers, postgresql]
   roles:
     - webserver
 

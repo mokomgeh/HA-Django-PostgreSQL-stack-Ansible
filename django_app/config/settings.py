@@ -72,7 +72,7 @@ DATABASES = {
         "PORT": os.environ.get("DJANGO_DB_PORT", "5432"),
         "CONN_MAX_AGE": 60,         # keep db connection alive for 60seconds before
         "OPTIONS": {
-            'connect_timeout': 5 # wait 5secs in db looses connection
+            'connect_timeout': 5 # wait 5secs if db looses connection
         }
     }
 }
