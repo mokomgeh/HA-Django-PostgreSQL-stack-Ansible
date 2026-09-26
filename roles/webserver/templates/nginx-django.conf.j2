@@ -19,13 +19,13 @@ server {
 
     # Static files served directly by Nginx
     location /static/ {
-        alias /opt/django/config/staticfiles/;
+        alias {{ django_app_base_dir }}/staticfiles/;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
 
     location /media/ {
-        alias /opt/django/media/;
+        alias {{ django_app_base_dir }}/media/;
     }
 
     location / {

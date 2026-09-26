@@ -1,70 +1,12 @@
 ---
-- name: General configuration for all hosts
-  hosts: all
+- name: Baseline configuration on every node (users, packages, time, updates)
+  hosts: all              
+  become: true      
   gather_facts: true
+  roles:
+    - common
 
-  tasks:
-    - name: Update system
-      ansible.builtin.dnf:
-        name: "*"
-        state: latest
-
-    - name: Add Epel repository
-      ansible.builtin.dnf:
-        name: 
-          - epel-release
-          - firewalld
-          - python3
-          - python3-pip
-        state: present
-
-    - name: Start and enable firewalld
-      ansible.builtin.service:
-        name: firewalld
-        state: started
-        enabled: true
-
-    - name: Allow HTTP through firewalld
-      ansible.posix.firewalld:
-        service: http
-        permanent: true
-        state: enabled
-        immediate: true
-
-    # - name: Disable SELinux # (For testing)
-    #   ansible.posix.selinux:
-    #     policy: "targeted"
-    #     state: "disabled"
-    #   register: selinux_result
-    #   # Only reboot if the policy actually changed and a reboot is required
-      # notify: reboot
-
-    - name: Create application group
-      ansible.builtin.group:
-        name: "{{ django_group }}"
-        state: present
-      when: inventory_hostname in groups['webservers'] or inventory_hostname in groups['database']
-
-    - name: Create application user on all nodes
-      ansible.builtin.user:
-        name: "{{ django_user }}"
-        group: "{{ django_group }}"
-        shell: /sbin/nologin
-        system: true
-        create_home: true
-        home: "{{ django_home }}"
-      when: inventory_hostname in groups['webservers'] or inventory_hostname in groups['database']
-  
-  # handlers:
-  #   - name: reboot
-  #     reboot:
-  #       msg: "Reboot triggered by SELinux policy change"
-  #       connect_timeout: 5
-  #       reboot_timeout: 300
-
-
-
-
+# Selinux and firewalld role
 - name: SELinux and Firewalld hardening on every node
   hosts: all
   become: true
@@ -81,6 +23,7 @@
   roles:
     - database
         
+# Webservers role        
 - name: Configure Django Webservers
   hosts: webservers
   become: true
@@ -88,7 +31,7 @@
   roles:
     - webserver
 
-
+# Load balancer role
 - name: "Configure the HAProxy load balancer"
   hosts: loadbalancer
   become: true

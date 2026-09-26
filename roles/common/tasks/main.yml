@@ -1,0 +1,39 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for common
+- name: Update system
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+
+- name: Add Epel repository and baseline packages
+  ansible.builtin.dnf:
+    update_cache: true
+    name: "{{ base_packages }}"
+    state: present
+
+###    Application User. A dedicated unprivileged user that owns and runs django & gunicorn process. Only created on webservers
+- name: Create application group
+  ansible.builtin.group:
+    name: "{{ django_group }}"
+    state: present
+  when: inventory_hostname in groups['webservers'] or inventory_hostname in groups['database']
+
+- name: Create application user on all nodes
+  ansible.builtin.user:
+    name: "{{ django_user }}"
+    group: "{{ django_group }}"
+    shell: /sbin/nologin
+    system: true
+    create_home: true
+    home: "{{ django_home }}"
+  when: inventory_hostname in groups['webservers'] or inventory_hostname in groups['database']
+
+
+# - name: Disable SELinux # (For testing)
+#   ansible.posix.selinux:
+#     policy: "targeted"
+#     state: "disabled"
+#     register: selinux_result
+#     # Only reboot if the policy actually changed and a reboot is required
+#   notify: reboot

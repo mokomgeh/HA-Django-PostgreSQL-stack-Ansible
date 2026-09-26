@@ -1,0 +1,17 @@
+#SPDX-License-Identifier: MIT-0
+---
+# defaults file for common
+base_packages:
+  - firewalld
+  - python3
+  - python3-pip
+  - python3-libsemanage
+  - policycoreutils-python-utils
+  - vim-enhanced
+  - curl
+  - wget
+  - tar
+  - unzip
+  - git
+  - chrony
+  

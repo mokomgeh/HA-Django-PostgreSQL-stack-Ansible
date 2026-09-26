@@ -1,0 +1,8 @@
+#SPDX-License-Identifier: MIT-0
+---
+# handlers file for common
+- name: reboot # For testing
+  reboot:
+    msg: "Reboot triggered by SELinux policy change"
+    connect_timeout: 5
+    reboot_timeout: 300

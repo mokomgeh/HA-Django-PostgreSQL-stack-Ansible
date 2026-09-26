@@ -1,7 +1,7 @@
 """
 Django settings — environment-driven so the exact same code runs unchanged
 on web01 and web02. The only thing that differs between them is the .env
-file Ansible renders at deploy time (see roles/django_app/templates/env.j2
+file Ansible renders at deploy time (roles/django_app/templates/env.j2
 in the infrastructure repo); this file never needs editing per-host.
 """
 import os

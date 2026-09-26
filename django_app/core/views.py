@@ -9,14 +9,14 @@ from .models import Note
 def get_server_identity():
     """Return a short identity string for the current web server."""
     hostname = socket.gethostname()
-    print(hostname)
+    #print(hostname)
     return hostname
 
 
 @require_http_methods(["GET", "POST"])
 def index(request):
     """
-    Main page of the HA demo.
+    Main page of the demo project.
 
     - Shows which backend (web1 / web2) handled *this* request.
     - Lets the user add a note that is stored in the shared PostgreSQL DB.
@@ -74,6 +74,6 @@ def health(request):
 
 
 def server_info(request):
-    """Tiny endpoint that only returns the current hostname (useful for testing)."""
+    """Tiny endpoint that only returns the current hostname (for testing)."""
     return HttpResponse(get_server_identity(), content_type='text/plain')
 

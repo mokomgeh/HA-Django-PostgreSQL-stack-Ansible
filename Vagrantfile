@@ -4,6 +4,7 @@
 Vagrant.configure("2") do |config|
     # Base VM OS Configuration
     config.vm.box = "generic/rocky9"
+    # config.vm.box = "rockylinux/9"
     config.ssh.insert_key = false
     config.vm.synced_folder ".", "/vagrant", disabled: true
     config.vm.provider :libvirt do |libvirt| # Using libvirt because my control node runs fedora and I personally use libvirt, qemu and KVM

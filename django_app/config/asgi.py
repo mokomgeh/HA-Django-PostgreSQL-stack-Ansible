@@ -1,5 +1,5 @@
 """
-ASGI config for ha_demo project.
+ASGI config for django project.
 """
 import os
 from django.core.asgi import get_asgi_application
