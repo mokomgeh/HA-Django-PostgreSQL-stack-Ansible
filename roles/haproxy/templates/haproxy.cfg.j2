@@ -53,9 +53,8 @@ backend django_backends
 
 # Built-in statistics page (protect with a strong password in production)
 listen stats
-    bind *:{{ haproxy_stats_port }}
+    bind {{ haproxy_stats_bind_address }}:{{ haproxy_stats_port }}
     stats enable
     stats uri /stats
     stats refresh 10s
     stats auth {{ haproxy_stats_user }}:{{ haproxy_stats_password }}
-    stats admin if TRUE

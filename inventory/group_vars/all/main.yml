@@ -27,8 +27,6 @@ django_allowed_hosts:
 django_debug: false
 
 ###### Gunicorn  variabels   ##################
-gunicorn_workers: 3
-
 gunicorn_bind_socket: "{{ django_app_base_dir }}/run/gunicorn.sock"
 
 

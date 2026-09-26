@@ -99,7 +99,7 @@
   changed_when: false   # because collectstatic is noisy; we ignore "changed"   
 
 - name: Apply database migrations
-  command: "/opt/django/venv/bin/python manage.py migrate --noinput"
+  command: "{{ django_app_venv_dir }}/bin/python manage.py migrate --noinput"
   args:
     chdir: "{{ django_app_base_dir }}"
   become: true

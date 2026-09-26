@@ -4,3 +4,5 @@
 haproxy_balance_algorithm: roundrobin  
 haproxy_healthcheck_path: /health/     
 haproxy_backend_port: 80               
+
+haproxy_stats_bind_address: 127.0.0.1

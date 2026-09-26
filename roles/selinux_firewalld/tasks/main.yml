@@ -26,7 +26,7 @@
     enabled: true
 
 ### Tasks related to Loadbalancer
-- name: "open HTTP,HTTPS and HAProxy stats port in firewalld"
+- name: "open HTTP,HTTPS and HAProxy stats port in firewalld on Loadbalancer"
   ansible.posix.firewalld:
     port: "{{ item }}"
     permanent: true    
@@ -35,8 +35,20 @@
   loop:
     - "80/tcp"
     - "443/tcp"
-    - "{{ haproxy_stats_port }}/tcp"
   when: "'loadbalancer' in group_names"
+
+- name: "open port 80 only to the load balancer IPs only" # Ensure port 80 accepts traffic only from loadbalancer
+  ansible.posix.firewalld:
+    rich_rule: >-
+      rule family="ipv4"
+      source address="{{ item }}"
+      port protocol="tcp" port="{{ nginx_listen_port}}"
+      accept
+    permanent: true
+    immediate: true
+    state: enabled
+  loop: "{{ groups['loadbalancer'] | map('extract', hostvars, 'ansible_host') | list }}"
+  when: "'webservers' in group_names"
 
 - name: "allow haproxy to connect out to any port"
   ansible.posix.seboolean:
@@ -46,12 +58,12 @@
   when: "'loadbalancer' in group_names"
 
 ### Tasks related to webserver nodes
-- name: "open HTTP and HTTPS in firewalld"
+- name: Explicitly close public HTTP/HTTPS on web nodes (traffic must go through HAProxy)
   ansible.posix.firewalld:
     service: "{{ item }}"
     permanent: true
     immediate: true
-    state: enabled
+    state: disabled
   loop:
     - http
     - https

@@ -1,0 +1,17 @@
+---
+collections:
+  # ansible.posix — provides the selinux, firewalld, and seboolean modules
+  # used throughout the firewalld_selinux and haproxy roles.
+  - name: ansible.posix
+    version: ">=1.5.0"
+
+  # community.general — provides sefcontext, and other general-
+  # purpose modules used in common and django_app.
+  - name: community.general
+    version: ">=8.0.0"
+
+  # community.postgresql — provides postgresql_db / postgresql_user /
+  # postgresql_privs, used in the database role to create the app's
+  # database and role without shelling out to raw `psql` commands.
+  - name: community.postgresql
+    version: ">=3.0.0"
